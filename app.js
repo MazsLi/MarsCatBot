@@ -22,10 +22,12 @@ const client = new line.Client(config);
 // about Express itself: https://expressjs.com/
 const app = express();
 
+const TIMEOUTMS = 60 * 1000; // 60 secs
+
 // register a webhook handler with middleware
 // about the middleware, please refer to doc
 app.post("/callback", line.middleware(config), (req, res) => {
-  req.setTimeout(60 * 1000); // sets timeout to 60 seconds
+  req.setTimeout(TIMEOUTMS);
   Promise.all(req.body.events.map(handleEvent))
     .then((result) => res.json(result))
     .catch((err) => {
@@ -41,17 +43,37 @@ async function handleEvent(event) {
     return Promise.resolve(null);
   }
 
-  const completion = await openai.createCompletion({
-    model: "text-davinci-003",
-    prompt: event.message.text,
-    max_tokens: 500,
-  });
+  try {
+    // API doc: https://beta.openai.com/docs/api-reference/completions/create?lang=node.js
+    const completion = await openai.createCompletion(
+      {
+        model: "text-davinci-003",
+        prompt: event.message.text,
+        temperature: 0.8,
+        max_tokens: 1000,
+        top_p: 1,
+        frequency_penalty: 0,
+        presence_penalty: 0,
+      },
+      {
+        timeout: TIMEOUTMS,
+      }
+    );
 
-  // create a echoing text message
-  const echo = { type: "text", text: completion.data.choices[0].text.trim() };
+    // create a echoing text message
+    const echo = { type: "text", text: completion.data.choices[0].text.trim() };
 
-  // use reply API
-  return client.replyMessage(event.replyToken, echo);
+    // use reply API
+    return client.replyMessage(event.replyToken, echo);
+  } catch (error) {
+    if (error.response) {
+      console.log(error.response.status);
+      console.log(error.response.data);
+    } else {
+      console.log(error.message);
+    }
+    return client.replyMessage(event.replyToken, error.message);
+  }
 }
 
 // listen on port
