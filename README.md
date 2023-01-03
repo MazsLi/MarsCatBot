@@ -1,6 +1,6 @@
 ## MarsCatBot
 
-LineBot + OpenAI
+LineBot + ChatGPT + OpenAI
 
 ### Reference
 
