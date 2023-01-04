@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const line = require("@line/bot-sdk");
+const timeout = require("connect-timeout");
 const { Configuration, OpenAIApi } = require("openai");
 
 const configuration = new Configuration({
@@ -23,11 +24,11 @@ const client = new line.Client(config);
 const app = express();
 
 const TIMEOUTMS = 60 * 1000; // 60 secs
+app.use(timeout("60s"));
 
 // register a webhook handler with middleware
 // about the middleware, please refer to doc
 app.post("/callback", line.middleware(config), (req, res) => {
-  req.setTimeout(TIMEOUTMS);
   Promise.all(req.body.events.map(handleEvent))
     .then((result) => res.json(result))
     .catch((err) => {
@@ -45,20 +46,15 @@ async function handleEvent(event) {
 
   try {
     // API doc: https://beta.openai.com/docs/api-reference/completions/create?lang=node.js
-    const completion = await openai.createCompletion(
-      {
-        model: "text-davinci-003",
-        prompt: event.message.text,
-        temperature: 0.8,
-        max_tokens: 1000,
-        top_p: 1,
-        frequency_penalty: 0,
-        presence_penalty: 0,
-      },
-      {
-        timeout: TIMEOUTMS,
-      }
-    );
+    const completion = await openai.createCompletion({
+      model: "text-davinci-003",
+      prompt: event.message.text,
+      temperature: 0.8,
+      max_tokens: 1000,
+      top_p: 1,
+      frequency_penalty: 0,
+      presence_penalty: 0,
+    });
 
     // create a echoing text message
     const echo = { type: "text", text: completion.data.choices[0].text.trim() };
@@ -72,7 +68,10 @@ async function handleEvent(event) {
     } else {
       console.log(error.message);
     }
-    return client.replyMessage(event.replyToken, error.message);
+    return client.replyMessage(
+      event.replyToken,
+      error.response.data || error.message
+    );
   }
 }
 
