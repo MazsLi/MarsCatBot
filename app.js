@@ -46,24 +46,23 @@ async function handleEvent(event) {
 
   try {
     // API doc: https://beta.openai.com/docs/api-reference/completions/create?lang=node.js
-    const completion = await openai.createCompletion({
-      model: "text-davinci-003",
-      prompt: event.message.text,
-      temperature: 0.8,
-      max_tokens: 1000,
-      top_p: 1,
-      frequency_penalty: 0,
-      presence_penalty: 0,
-    });
+    const completion = await openai.createCompletion(
+      {
+        model: "text-davinci-003",
+        prompt: event.message.text,
+        temperature: 0.9,
+        max_tokens: 1000,
+        top_p: 1,
+        frequency_penalty: 0,
+        presence_penalty: 0,
+      },
+      {
+        timeout: TIMEOUTMS,
+      }
+    );
 
     // create a echoing text message
-    const echo = {
-      type: "text",
-      text:
-        completion.data.choices[0].text.trim() +
-        "\n" +
-        completion.data.choices[1].text.trim(),
-    };
+    const echo = { type: "text", text: completion.data.choices[0].text.trim() };
 
     // use reply API
     return client.replyMessage(event.replyToken, echo);
